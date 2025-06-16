@@ -23,6 +23,7 @@ def save_videos(*args):
         video_info = []
         today = datetime.now().strftime('%Y%m%d')
         return_txt = [datetime.now().strftime('%Y%m%d') + '竖屏｜']
+        contents = []
         times = int(args[-2])
         for i in range(ROW):
             video_file = args[i * 3]
@@ -31,6 +32,7 @@ def save_videos(*args):
                 continue
             title = args[i * 3 + 1].replace('\n', '')
             description = args[i * 3 + 2].replace('\n', '')
+            contents.append(description)
             return_txt.append(title)
             if not (video_file and title and description):
                 return f" 第{i + 1}组信息不完整，请检查。"
@@ -60,7 +62,8 @@ def save_videos(*args):
         with open(build_new_articles_uploaded_path(times_tag=times), "w", encoding="utf-8") as f:
             json.dump(video_info, f, ensure_ascii=False, indent=2)
         combine_videos(today, times_tag=times)
-        return return_txt
+        return_txt.extend(contents)
+        return '\n'.join(return_txt)
     except Exception as e:
         logger.error(f"上传失败: {e}", exc_info=True)
         return f"上传失败: {str(e)}"
