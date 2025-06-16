@@ -39,15 +39,15 @@ def save_videos(*args):
             filename = f"{times}_{title}.mp4"
             uploaded_video_path = os.path.join(VIDEO_DIR, today, ALJ_UP, filename)
             os.makedirs(os.path.dirname(uploaded_video_path), exist_ok=True)
-
             with open(video_file.name, "rb") as src_file:
                 with open(uploaded_video_path, "wb") as out_file:
                     out_file.write(src_file.read())
+            logger.info(f'video has saved in {uploaded_video_path}')
             mp3_path = f"{times}_{title}.mp3"
             mp3_path = os.path.join(VIDEO_DIR, today, ALJ_UP, mp3_path)
 
-            generate_audio(title + '。' + description, mp3_path)
-
+            generate_audio(description, mp3_path)
+            logger.info(f'mp3 has saved in {mp3_path}')
             video_info.append({
                 "video": uploaded_video_path,
                 "audio": mp3_path,
@@ -82,7 +82,6 @@ if __name__ == '__main__':
                                 title = gr.Textbox(label="视频名称")
                                 description = gr.Textbox(label="视频描述", lines=2)
                                 inputs.extend([video, title, description])
-
 
             # 右侧：输出结果区
             with gr.Column(scale=2):

@@ -39,6 +39,7 @@ hint_information = """信息来源:[中国日报国际版] [中东半岛电视�
 PROCESSED_NEWS_JSON_FILE_NAME = "news_results_processed.json"
 CN_NEWS_FOLDER_NAME_P = "news_p"
 FINAL_VIDEOS_FOLDER_NAME = "final_p_videos"
+os.makedirs(FINAL_VIDEOS_FOLDER_NAME,exist_ok=True)
 CHINADAILY = 'chinadaily'
 CHINADAILY_EN = 'chinadaily_en'
 RT = 'rt'
@@ -111,6 +112,7 @@ def build_new_articles_uploaded_path(today=datetime.now().strftime("%Y%m%d"), ti
     logger.info(f" new_articles_path_uploaded = {path}")
     return path
 
+
 def build_end_path():
     return os.path.join(CN_NEWS_FOLDER_NAME_P, "p_end.mp4")
 
@@ -135,11 +137,11 @@ def build_today_bg_music_path():
     return os.path.join(CN_NEWS_FOLDER_NAME_P, "p_bg_music.mp4")
 
 
-
 def build_new_articles_path(today=datetime.now().strftime("%Y%m%d"), times_tag=0):
     path = os.path.join(CN_NEWS_FOLDER_NAME_P, today, 'new_articles' + str(times_tag) + '.json')
     logger.info(f" new_articles_path = {path}")
     return path
+
 
 def generate_background_image(width=GLOBAL_WIDTH, height=GLOBAL_HEIGHT, color=MAIN_BG_COLOR):
     # 创建一个新的图像
@@ -231,7 +233,6 @@ def generate_three_layout_video(audio_path, video_path, title, summary, output_p
     # 加载背景和音频
     bg_clip = ColorClip(size=(INNER_WIDTH, INNER_HEIGHT), color=(252, 254, 254))  # 白色背景
     try:
-        generate_audio(text=summary, output_file=audio_path, rewrite=REWRITE)
         audio_clip = AudioFileClip(audio_path)
     except IOError as e:
         logger.error(f"音频文件加载失败，{audio_path}", e)
@@ -262,7 +263,10 @@ def generate_three_layout_video(audio_path, video_path, title, summary, output_p
     video_clip_list = []
     top_left_video = VideoFileClip(video_path)
     origin_duration = top_left_video.duration
-    top_left_video = top_left_video.subclipped(0, origin_duration * 0.85)
+    new_duration = origin_duration * 0.85
+    logger.info(
+        f'video{title} narrow form  {origin_duration}  down to duration={new_duration} ,while audio is {duration}')
+    top_left_video = top_left_video.subclipped(0, new_duration)
     scale = min(bg_width / top_left_video.w, top_height / top_left_video.h)
     top_left_video = top_left_video.resized(scale)
     offset_w, offest_h = (bg_width - top_left_video.w) // 2, (top_height - top_left_video.h) // 2
@@ -484,8 +488,7 @@ def combine_videos(today: str = datetime.now().strftime("%Y%m%d"), times_tag=1):
     # logger.info(f"正在生成视频片头{intro_path}...")
     # topics, duration = generate_video_introduction(intro_path, today)
     all_paths = generate_all_news_video(today=today, times_tag=times_tag)
-    for i in range(len(all_paths)):
-        video_paths.append(all_paths[i])
+    video_paths.extend(all_paths)
     video_paths.append(generate_video_end())
     logger.info(f"生成主视频并整合...")
     final_path = build_today_final_video_path(today, times_tag)
@@ -494,11 +497,8 @@ def combine_videos(today: str = datetime.now().strftime("%Y%m%d"), times_tag=1):
 
     end_time = time.time()  # 结束计时
     elapsed_time = end_time - start_time
-    logger.info(f"生成新闻JSON文件...")
     # save_today_news_json(topics, today)
-    logger.info(f"视频整合生成总耗时: {elapsed_time:.2f} 秒")
-
-
+    logger.info(f"{final_path}视频整合生成总耗时: {elapsed_time:.2f} 秒")
 
 
 def generate_all_news_video(today: str = datetime.now().strftime("%Y%m%d"), times_tag=1) -> list[str]:
@@ -553,7 +553,6 @@ def load_json_by_source(source, today):
         news_data = json.load(json_file)
     logger.info(f"{source}新闻json文{json_file_path}件加载成功,news_data={len(news_data)}")
     return json_file_path, news_data
-
 
 
 def save_today_news_json(topic, today: str = datetime.now().strftime("%Y%m%d")):
