@@ -59,7 +59,9 @@ def save_videos(*args):
                 "show": True
             })
             # 保存为 JSON
-        with open(build_new_articles_uploaded_path(times_tag=times), "w", encoding="utf-8") as f:
+        saved_json_file = build_new_articles_uploaded_path(today=today, times_tag=times)
+        logger.info(f"video_info has saved in {saved_json_file}")
+        with open(saved_json_file, "w", encoding="utf-8") as f:
             json.dump(video_info, f, ensure_ascii=False, indent=2)
         combine_videos(today, times_tag=times)
         return_txt.extend(contents)
