@@ -269,7 +269,7 @@ def generate_three_layout_video(audio_path, video_path, title, summary, output_p
     top_left_video = top_left_video.resized(scale)
     offset_w, offset_h = (bg_width - top_left_video.w) // 2, (top_height - top_left_video.h) // 2
     top_left_video = top_left_video.with_position((offset_w, offset_h + title_height))
-    top_left_video = top_left_video.with_effects([afx.MultiplyVolume(0.7),Loop(duration=duration)])
+    top_left_video = top_left_video.with_effects([afx.MultiplyVolume(0.7), Loop(duration=duration)])
     video_clip_list.append(top_left_video)
 
     # 左下文字处理
@@ -518,6 +518,9 @@ def generate_all_news_video(today: str = datetime.now().strftime("%Y%m%d"), time
         logger.info(f" {article.source} {article.show} {article.title}   新闻正在处理...")
         processed_video = f"{str(times_tag)}_p_{article.title}.mp4"
         video_output_path = os.path.join(dir_path, processed_video)
+        if os.path.exists(video_output_path) and not REWRITE:
+            logger.info(f'{video_output_path} has exists ')
+            continue
         logger.info(f" {article.title} 保存在{video_output_path}")
         if os.path.exists(video_output_path) and not REWRITE:
             logger.warning(
@@ -622,7 +625,7 @@ def test_generate_video_end():
 
 
 def test_combine_video():
-    today = '20250609'
+    today = '20250617'
     combine_videos(today)
 
 
