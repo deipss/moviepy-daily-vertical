@@ -308,6 +308,7 @@ def generate_three_layout_video(audio_path, video_path, title, summary, output_p
     video_clip_list.insert(2, bottom_right_img)
     video_clip_list.insert(3, top_title)
     final_video = CompositeVideoClip(clips=video_clip_list, size=(bg_width, bg_height))
+    logger.info(f'final_video.size={final_video.size} , final_video.duration={final_video.duration}')
     if is_preview:
         final_video.preview()
     else:
