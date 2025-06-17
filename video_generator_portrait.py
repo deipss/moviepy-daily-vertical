@@ -39,7 +39,7 @@ hint_information = """信息来源:[中国日报国际版] [中东半岛电视�
 PROCESSED_NEWS_JSON_FILE_NAME = "news_results_processed.json"
 CN_NEWS_FOLDER_NAME_P = "news_p"
 FINAL_VIDEOS_FOLDER_NAME = "final_p_videos"
-os.makedirs(FINAL_VIDEOS_FOLDER_NAME,exist_ok=True)
+os.makedirs(FINAL_VIDEOS_FOLDER_NAME, exist_ok=True)
 CHINADAILY = 'chinadaily'
 CHINADAILY_EN = 'chinadaily_en'
 RT = 'rt'
@@ -263,15 +263,13 @@ def generate_three_layout_video(audio_path, video_path, title, summary, output_p
     video_clip_list = []
     top_left_video = VideoFileClip(video_path)
     origin_duration = top_left_video.duration
-    new_duration = origin_duration * 0.85
     logger.info(
-        f'video{title} narrow form  {origin_duration}  down to duration={new_duration} ,while audio is {duration}')
-    top_left_video = top_left_video.subclipped(0, new_duration)
+        f'video{title} narrow form  {origin_duration} ,while audio duration is {duration}')
     scale = min(bg_width / top_left_video.w, top_height / top_left_video.h)
     top_left_video = top_left_video.resized(scale)
-    offset_w, offest_h = (bg_width - top_left_video.w) // 2, (top_height - top_left_video.h) // 2
-    top_left_video = top_left_video.with_position((offset_w, offest_h + title_height)).with_effects(
-        [Loop(duration=duration), afx.MultiplyVolume(0.75)])
+    offset_w, offset_h = (bg_width - top_left_video.w) // 2, (top_height - top_left_video.h) // 2
+    top_left_video = top_left_video.with_position((offset_w, offset_h + title_height))
+    top_left_video = top_left_video.with_effects([afx.MultiplyVolume(0.7),Loop(duration=duration)])
     video_clip_list.append(top_left_video)
 
     # 左下文字处理
@@ -308,7 +306,7 @@ def generate_three_layout_video(audio_path, video_path, title, summary, output_p
     video_clip_list.insert(2, bottom_right_img)
     video_clip_list.insert(3, top_title)
     final_video = CompositeVideoClip(clips=video_clip_list, size=(bg_width, bg_height))
-    logger.info(f'final_video.size={final_video.size} , final_video.duration={final_video.duration}')
+    logger.info(f'title ={title} final_video.size={final_video.size} , final_video.duration={final_video.duration}')
     if is_preview:
         final_video.preview()
     else:
@@ -609,14 +607,14 @@ def test_generate_video_introduction():
 
 def test_video_text_align():
     generate_three_layout_video(
-        output_path="news/20250609/chinadaily/0000/video.mp4",
-        audio_path="news/20250609/chinadaily/0000/summary_audio.mp3",
-        video_path='news/20250609/chinadaily/0000/rendition.mp4',
-        summary="""韩国新总统李在镕以近50%的选票胜出，但其蜜月期仅一天即上任，需应对弹劾前总统尹锡烈留下的政治和安全漏洞。首轮挑战是处理唐纳德·特朗普可能破坏的经济、安全和与朝鲜关系。一季度韩国经济收缩，已因特朗普征收25%关税陷入困境。美国驻首尔军事存在可能转向遏制中国，增加韩国的外交和军事压力。李明博希望改善与中国的关系，但面临美国对朝鲜半岛战略布局的不确定性，同时需解决国内民主恢复问题。""",
-        title="""[中东半岛新闻]韩国新总统需要避免特朗普式的危机""",
-        index="1",
-        is_preview=False
-    )
+        output_path='news_p/20250617/alj_up/1_以色列继续攻击伊朗P.mp4',
+        audio_path='news_p/20250617/alj_up/1_以色列继续攻击伊朗.mp3',
+        video_path='news_p/20250617/alj_up/1_以色列继续攻击伊朗.mp4',
+        summary='6 月 13 日凌晨，以色列发动代号 “狮子的力量” 军事行动，空袭伊朗境内多个核设施、军事基地及关键人物目标，伊朗革命卫队总司令等多名高级指挥官及核科学家身亡。于 13 日晚至 15 日向以色列发射逾 200 枚弹道导弹及无人机，重点打击特拉维夫国防部大楼、海法炼油厂等目标。6 月 16 日，伊朗再次对以色列境内的多处军事目标发动导弹袭击，造成一定人员伤亡和军事设施损毁。',
+        title='以色列继续攻击伊朗',
+        index=str(1),
+        is_preview=False,
+        news_type='')
 
 
 def test_generate_video_end():
