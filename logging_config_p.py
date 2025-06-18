@@ -2,7 +2,7 @@ import logging
 from logging.handlers import RotatingFileHandler
 
 
-def setup_logger(log_file='app_p.log', log_level=logging.INFO):
+def setup_logger(log_file='app.log', log_level=logging.INFO):
     # 创建一个名为 'app' 的根logger（在整个项目中保持唯一）
     logger = logging.getLogger('app')
     logger.setLevel(log_level)

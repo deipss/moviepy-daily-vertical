@@ -249,32 +249,34 @@ def generate_three_layout_video(audio_path, video_path, title, summary, output_p
     bg_width, bg_height = bg_clip.size
 
     # 计算各区域尺寸
-    title_height = 40
-    HEIGHT_RATIO = 0.85
+    title_height = 0
+    HEIGHT_RATIO = 0.8
     top_height = int((bg_height - title_height) * HEIGHT_RATIO)
     bottom_height = bg_height - top_height - title_height
 
-    bottom_right_width = int(bg_width * 0.2)
+    bottom_right_width = int(bg_width * 0.25)
     bottom_left_width = bg_width - bottom_right_width
 
     bottom_right_img = VideoFileClip('videos/man_announcer.mp4').with_effects([Loop(duration=duration)])
     if bottom_right_img.w > bottom_right_width or bottom_right_img.h > bottom_height:
         scale = min(bottom_right_width / bottom_right_img.w, bottom_height / bottom_right_img.h)
         bottom_right_img = bottom_right_img.resized(scale)
-    bottom_right_img = bottom_right_img.with_position(('right', 'bottom')).with_duration(duration)
+    offset_w, offset_h = (bottom_right_width - bottom_right_img.w) // 2, (bottom_height - bottom_right_img.h) // 2
+
+    bottom_right_img = bottom_right_img.with_position(('right', top_height + title_height+offset_h)).with_duration(duration)
 
     # 左上图片处理
     video_clip_list = []
-    top_left_video = VideoFileClip(video_path)
-    origin_duration = top_left_video.duration
+    top_video = VideoFileClip(video_path)
+    origin_duration = top_video.duration
     logger.info(
         f'video{title} narrow form  {origin_duration} ,while audio duration is {duration}')
-    scale = min(bg_width / top_left_video.w, top_height / top_left_video.h)
-    top_left_video = top_left_video.resized(scale)
-    offset_w, offset_h = (bg_width - top_left_video.w) // 2, (top_height - top_left_video.h) // 2
-    top_left_video = top_left_video.with_position((offset_w, offset_h + title_height))
-    top_left_video = top_left_video.with_effects([afx.MultiplyVolume(0.55), Loop(duration=duration)])
-    video_clip_list.append(top_left_video)
+    scale = min(bg_width / top_video.w, top_height / top_video.h)
+    top_video = top_video.resized(scale)
+    offset_w, offset_h = (bg_width - top_video.w) // 2, (top_height - top_video.h) // 2
+    top_video = top_video.with_position((offset_w, offset_h))
+    top_video = top_video.with_effects([afx.MultiplyVolume(0.55), Loop(duration=duration)])
+    video_clip_list.append(top_video)
 
     # 左下文字处理
     summary = summary.replace(' ', '')
@@ -293,15 +295,15 @@ def generate_three_layout_video(audio_path, video_path, title, summary, output_p
     ).with_duration(duration).with_position(('left', top_height + title_height))
 
     # 标题
-    title_font_size = 40
-    top_title = TextClip(
-        interline=title_font_size // 2,
-        text=title,
-        font_size=title_font_size,
-        color='black',
-        font='./font/simhei.ttf',
-        method='label'
-    ).with_duration(duration).with_position(('left', 'top'))
+    # title_font_size = 40
+    # top_title = TextClip(
+    #     interline=title_font_size // 2,
+    #     text=title,
+    #     font_size=title_font_size,
+    #     color='black',
+    #     font='./font/simhei.ttf',
+    #     method='label'
+    # ).with_duration(duration).with_position(('left', 'top'))
 
     # 创建各区域背景框
 
@@ -309,7 +311,7 @@ def generate_three_layout_video(audio_path, video_path, title, summary, output_p
     video_clip_list.insert(0, bg_clip)
     video_clip_list.insert(1, bottom_left_txt)
     video_clip_list.insert(2, bottom_right_img)
-    video_clip_list.insert(3, top_title)
+    # video_clip_list.insert(3, top_title)
     final_video = CompositeVideoClip(clips=video_clip_list, size=(bg_width, bg_height))
     logger.info(f'title ={title} final_video.size={final_video.size} , final_video.duration={final_video.duration}')
     if is_preview:
@@ -440,13 +442,13 @@ def generate_video_end(is_preview=False):
         font='./font/simhei.ttf',
         stroke_color='black',
         stroke_width=2
-    ).with_duration(duration).with_position(('center', GLOBAL_HEIGHT * 0.5))
+    ).with_duration(duration).with_position(('center', GLOBAL_HEIGHT * 0.6))
 
-    lady = (VideoFileClip('videos/man_announcer.mp4').with_duration(duration)
-            .with_position(('center', GLOBAL_HEIGHT * 0.17)).resized(0.7))
+    anouncer = (VideoFileClip('videos/man_announcer.mp4').with_duration(duration)
+            .with_position(('center', GLOBAL_HEIGHT * 0.27)).resized(0.75))
 
     # 合成最终视频
-    final_clip = CompositeVideoClip([bg_clip, txt_clip, lady], size=bg_clip.size)
+    final_clip = CompositeVideoClip([bg_clip, txt_clip, anouncer], size=bg_clip.size)
     if is_preview:
         final_clip.preview()
     else:
@@ -637,7 +639,7 @@ def test_video_text_align():
         summary='6 月 13 日凌晨，以色列发动代号 “狮子的力量” 军事行动，空袭伊朗境内多个核设施、军事基地及关键人物目标，伊朗革命卫队总司令等多名高级指挥官及核科学家身亡。于 13 日晚至 15 日向以色列发射逾 200 枚弹道导弹及无人机，重点打击特拉维夫国防部大楼、海法炼油厂等目标。6 月 16 日，伊朗再次对以色列境内的多处军事目标发动导弹袭击，造成一定人员伤亡和军事设施损毁。',
         title='以色列继续攻击伊朗',
         index=str(1),
-        is_preview=False,
+        is_preview=True,
         news_type='')
 
 
