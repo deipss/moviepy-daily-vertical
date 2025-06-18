@@ -70,7 +70,9 @@ def save_videos(*args):
         row_title += ' '.join(titles)
         return_txt = [row_title]
         return_txt.extend(contents)
-        return '\n'.join(return_txt)
+        show_txt = '\n'.join(return_txt)
+        logger.info(f"return_txt = {show_txt}")
+        return show_txt
     except Exception as e:
         logger.error(f"上传失败: {e}", exc_info=True)
         return f"上传失败: {str(e)}"
@@ -78,7 +80,7 @@ def save_videos(*args):
 
 if __name__ == '__main__':
 
-    with gr.Blocks() as demo:
+    with gr.Blocks() as app:
         with gr.Row():
             # 左侧：上传区
             with gr.Column(scale=4):
@@ -104,4 +106,4 @@ if __name__ == '__main__':
                 result_output = gr.Textbox(label="上传结果", lines=10, interactive=False)
 
         submit_btn.click(fn=save_videos, inputs=inputs, outputs=result_output)
-    demo.launch(server_port=7860)
+    app.launch(server_port=7860)
