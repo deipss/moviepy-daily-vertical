@@ -22,39 +22,41 @@ def save_videos(*args):
     try:
         video_info = []
         today = datetime.now().strftime('%Y%m%d')
-        return_txt = [datetime.now().strftime('%Y%m%d') + '竖屏｜']
-        contents = []
         times = int(args[-2])
+        row_title = f'{today}竖屏_{times} '
+        contents = []
+        titles = []
+
         for i in range(ROW):
             video_file = args[i * 3]
             if not video_file:
                 logger.warning(f"{i}视频是空的")
                 continue
-            title = args[i * 3 + 1].replace('\n', '')
-            description = args[i * 3 + 2].replace('\n', '')
-            contents.append(description)
-            return_txt.append(title)
-            if not (video_file and title and description):
+            title_i = args[i * 3 + 1].replace('\n', '').replace(' ', '')
+            description_i = args[i * 3 + 2].replace('\n', '').replace(' ', '')
+            contents.append(str(i) + description_i)
+            titles.append(title_i)
+            if not (video_file and title_i and description_i):
                 return f" 第{i + 1}组信息不完整，请检查。"
 
             # 保存视频文件
-            filename = f"{times}_{title}.mp4"
+            filename = f"{times}_{title_i}.mp4"
             uploaded_video_path = os.path.join(VIDEO_DIR, today, ALJ_UP, filename)
             os.makedirs(os.path.dirname(uploaded_video_path), exist_ok=True)
             with open(video_file.name, "rb") as src_file:
                 with open(uploaded_video_path, "wb") as out_file:
                     out_file.write(src_file.read())
             logger.info(f'video has saved in {uploaded_video_path}')
-            mp3_path = f"{times}_{title}.mp3"
+            mp3_path = f"{times}_{title_i}.mp3"
             mp3_path = os.path.join(VIDEO_DIR, today, ALJ_UP, mp3_path)
 
-            generate_audio(description, mp3_path)
+            generate_audio(description_i, mp3_path)
             logger.info(f'mp3 has saved in {mp3_path}')
             video_info.append({
                 "video": uploaded_video_path,
                 "audio": mp3_path,
-                "title": title,
-                "summary": description,
+                "title": title_i,
+                "summary": description_i,
                 "source": ALJ_UP,
                 "show": True
             })
@@ -64,6 +66,9 @@ def save_videos(*args):
         with open(saved_json_file, "w", encoding="utf-8") as f:
             json.dump(video_info, f, ensure_ascii=False, indent=2)
         combine_videos(today, times_tag=times)
+
+        row_title += ' '.join(titles)
+        return_txt = [row_title]
         return_txt.extend(contents)
         return '\n'.join(return_txt)
     except Exception as e:
@@ -76,14 +81,15 @@ if __name__ == '__main__':
     with gr.Blocks() as demo:
         with gr.Row():
             # 左侧：上传区
-            with gr.Column(scale=3):
+            with gr.Column(scale=4):
                 inputs = []
                 for i in range(ROW // 2):  # Adjust loop to handle two columns
                     with gr.Row():  # Create two columns for each row
                         for j in range(2):  # For two videos per row
                             with gr.Column():
                                 gr.Markdown(f"### 视频 {i * 2 + j + 1}")
-                                video = gr.File(label="上传视频", file_types=["video"], file_count="single", scale=1)
+                                video = gr.File(label="上传视频", file_types=["video"], file_count="single", scale=1,
+                                                height=80)
                                 title = gr.Textbox(label="视频名称")
                                 description = gr.Textbox(label="视频描述", lines=2)
                                 inputs.extend([video, title, description])
@@ -91,7 +97,7 @@ if __name__ == '__main__':
             # 右侧：输出结果区
             with gr.Column(scale=2):
                 title_main = gr.Textbox(label="生成视频名称")
-                times = gr.Textbox(label="生成视频序号[只能是要数字]")
+                times = gr.Number(label="生成视频序号[只能数字]", precision=0)
                 inputs.append(times)
                 inputs.append(title_main)
                 submit_btn = gr.Button("上传所有视频")
