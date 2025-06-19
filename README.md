@@ -58,3 +58,86 @@ nohup python index.py 2>&1 &
   }
 ]
 ```
+
+# 6. update log
+
+## 6.1. crawl video from aljazeera
+```python
+import requests
+import re
+import os
+
+# ===== Step 1: 获取网页 HTML =====
+url = "https://example.com/video-page"  # 目标网页
+headers = {
+    "User-Agent": "Mozilla/5.0"
+}
+
+resp = requests.get(url, headers=headers)
+html = resp.text
+
+# ===== Step 2: 提取 .m3u8 链接 =====
+# 可能嵌在 <script>、source 标签中，也可能是 JS 变量
+m3u8_urls = re.findall(r'https?://[^"\']+\.m3u8', html)
+
+if not m3u8_urls:
+    print("❌ 未找到 .m3u8 视频链接")
+    exit()
+
+m3u8_url = m3u8_urls[0]  # 假设第一个为主链接
+print(f"找到视频链接：{m3u8_url}")
+
+# ===== Step 3: 下载 .m3u8 文件 =====
+m3u8_resp = requests.get(m3u8_url, headers=headers)
+m3u8_content = m3u8_resp.text
+
+# ===== Step 4: 解析 ts 分片列表 =====
+base_url = m3u8_url.rsplit("/", 1)[0]
+ts_list = [line.strip() for line in m3u8_content.splitlines() if line and not line.startswith("#")]
+
+# 创建临时文件夹
+os.makedirs("ts_files", exist_ok=True)
+
+# ===== Step 5: 下载 ts 分片 =====
+for i, ts_file in enumerate(ts_list):
+    ts_url = ts_file if ts_file.startswith("http") else f"{base_url}/{ts_file}"
+    ts_data = requests.get(ts_url, headers=headers).content
+    ts_path = f"ts_files/{i:04d}.ts"
+    with open(ts_path, "wb") as f:
+        f.write(ts_data)
+    print(f"已下载分片 {i + 1}/{len(ts_list)}")
+
+# ===== Step 6: 合并为 TS 文件 =====
+with open("output.ts", "wb") as outfile:
+    for i in range(len(ts_list)):
+        with open(f"ts_files/{i:04d}.ts", "rb") as infile:
+            outfile.write(infile.read())
+
+# 可选：转为 MP4
+os.system("ffmpeg -i output.ts -c copy output.mp4")
+
+print("✅ 视频下载完成")
+
+```
+
+### 6.1.1. analyse video by AI model
+可以使用PaddleOCR来分析视频中的文字，
+
+> PaddleOCR如果使用GP U，一般是多大显存的GPU
+
+
+| 模型类型                      | 版本                                | 所需显存            | 说明                                    |
+| ------------------------- | --------------------------------- | --------------- | ------------------------------------- |
+| **轻量级模型**                 | PP-OCRv3 / PP-OCRv4（mobile 模型）    | **512MB～1.5GB** | 推荐用于部署，适合嵌入式设备、轻量显卡（如 GTX 1050、MX250） |
+| **通用高精度模型**               | PP-OCRv4（server 模型）               | **2～4GB**       | 精度更高，适合服务器或中等显卡（如 GTX 1660、RTX 3060）  |
+| **中英文多语言模型**              | multilingual（例如 ch, en, fr, etc.） | **2～6GB**       | 语言支持越多模型越大                            |
+| **文档/表格识别（PPOCR-Layout）** | 布局分析 + OCR                        | **>4GB**        | 会加载多个模型，推荐 6GB+                       |
+
+- GTX 1050Ti（4GB）：运行 ch_PP-OCRv3_mobile 没有压力，视频帧抽取配合 OpenCV 达 10FPS。
+
+
+
+### 6.1.2. generate news video
+
+
+## multiple audio segments
