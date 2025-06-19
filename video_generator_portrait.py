@@ -1,5 +1,6 @@
 from moviepy import *
 from PIL import ImageDraw
+from pyarrow import duration
 from zhdate import ZhDate
 import math
 from PIL import Image
@@ -56,6 +57,18 @@ PROXY = {
 
 
 @dataclass
+class ArticleAudio:
+    def __init__(self, txt: str = None, start_time: float = None, durations: float = None, audio_path: str = None):
+        self.txt = txt
+        self.start_time = start_time
+        self.durations = durations
+        self.audio_path = audio_path
+
+    def to_dict(self):
+        return self.__dict__
+
+
+@dataclass
 class NewsArticle:
     def __init__(self,
                  title: str = None,
@@ -63,6 +76,7 @@ class NewsArticle:
                  images: List[str] = None,
                  video: str = None,
                  audio: str = None,
+                 audios: list = None,
                  image_urls: List[str] = None,
                  video_url: str = None,
                  content_cn: str = None,
@@ -83,6 +97,7 @@ class NewsArticle:
         self.images = images or []
         self.video = video
         self.audio = audio
+        self.audios = [ArticleAudio(**i) for i in audios]
         self.image_urls = image_urls or []
         self.video_url = video_url
         self.content_cn = content_cn
@@ -231,21 +246,34 @@ def generate_audio(text: str, output_file: str = "audio.wav", rewrite=False) -> 
     os.system(sh)
 
 
-def generate_three_layout_video(audio_path, video_path, title, summary, output_path, index, is_preview=False,
+def generate_three_layout_video(audios, video_path, title, summary, output_path, index, is_preview=False,
                                 news_type=""):
     title = "" + index + " " + title.replace(' ', '')
     # 加载背景和音频
     bg_clip = ColorClip(size=(INNER_WIDTH, INNER_HEIGHT), color=(252, 254, 254))  # 白色背景
-    try:
-        audio_clip = AudioFileClip(audio_path)
-    except IOError as e:
-        logger.error(f"音频文件加载失败，{audio_path}", e)
+    audio_clips = []
+    cur_duration = 0
+    for mp3 in audios:
+        try:
+            audio_clip = AudioFileClip(mp3.audio_path)
+            audio_clips.append(audio_clip)
+            mp3.start_time = cur_duration
+            mp3.durations = audio_clip.duration
+            cur_duration += audio_clip.duration
+        except IOError as e:
+            logger.error(f"音频文件加载失败，{mp3.audio_path}", e)
+            return False
+    if cur_duration < 2:
+        logger.warning(f"{title} 音频文件时长过短")
         return False
-    duration = audio_clip.duration
-    if duration < 2:
-        logger.warning(f"{title} 音频文件时长过短，请检查音频文件{audio_path}")
+
+    # 合并音频片段
+    if audio_clips:
+        combined_audio = concatenate_audioclips(audio_clips)
+        bg_clip = bg_clip.with_duration(cur_duration).with_audio(combined_audio)
+    else:
+        logger.error(f"未找到有效的音频片段，无法合并音频。")
         return False
-    bg_clip = bg_clip.with_duration(duration).with_audio(audio_clip)
     bg_width, bg_height = bg_clip.size
 
     # 计算各区域尺寸
@@ -257,42 +285,46 @@ def generate_three_layout_video(audio_path, video_path, title, summary, output_p
     bottom_right_width = int(bg_width * 0.25)
     bottom_left_width = bg_width - bottom_right_width
 
-    bottom_right_img = VideoFileClip('videos/man_announcer.mp4').with_effects([Loop(duration=duration)])
+    bottom_right_img = VideoFileClip('videos/man_announcer.mp4').with_effects([Loop(duration=cur_duration)])
     if bottom_right_img.w > bottom_right_width or bottom_right_img.h > bottom_height:
         scale = min(bottom_right_width / bottom_right_img.w, bottom_height / bottom_right_img.h)
         bottom_right_img = bottom_right_img.resized(scale)
     offset_w, offset_h = (bottom_right_width - bottom_right_img.w) // 2, (bottom_height - bottom_right_img.h) // 2
 
-    bottom_right_img = bottom_right_img.with_position(('right', top_height + title_height+offset_h)).with_duration(duration)
+    bottom_right_img = bottom_right_img.with_position(('right', top_height + title_height + offset_h)).with_duration(
+        cur_duration)
 
     # 左上图片处理
     video_clip_list = []
     top_video = VideoFileClip(video_path)
     origin_duration = top_video.duration
     logger.info(
-        f'video{title} narrow form  {origin_duration} ,while audio duration is {duration}')
+        f'video{title} narrow form  {origin_duration} ,while audio duration is {cur_duration}')
     scale = min(bg_width / top_video.w, top_height / top_video.h)
     top_video = top_video.resized(scale)
     offset_w, offset_h = (bg_width - top_video.w) // 2, (top_height - top_video.h) // 2
     top_video = top_video.with_position((offset_w, offset_h))
-    top_video = top_video.with_effects([afx.MultiplyVolume(0.55), Loop(duration=duration)])
+    top_video = top_video.with_effects([afx.MultiplyVolume(0.55), Loop(duration=cur_duration)])
     video_clip_list.append(top_video)
 
     # 左下文字处理
-    summary = summary.replace(' ', '')
-    font_size, chars_per_line = calculate_font_size_and_line_length(summary, bottom_left_width * 95 / 100,
-                                                                    bottom_height * 95 / 100)
-    summary = '\n'.join([summary[i:i + chars_per_line] for i in range(0, len(summary), chars_per_line)])
-    bottom_left_txt = TextClip(
-        text=summary,
-        interline=font_size // 2,
-        font_size=font_size,
-        color='black',
-        font='./font/simhei.ttf',
-        text_align='left',
-        size=(bottom_left_width, bottom_height),
-        method='caption'
-    ).with_duration(duration).with_position(('left', top_height + title_height))
+    bottom_left_txt_list = []
+    for mp3 in audios:
+        summary = mp3.txt.replace(' ', '')
+        font_size, chars_per_line = calculate_font_size_and_line_length(summary, bottom_left_width * 95 / 100,
+                                                                        bottom_height * 95 / 100)
+        summary = '\n'.join([summary[i:i + chars_per_line] for i in range(0, len(summary), chars_per_line)])
+        bottom_left_txt = TextClip(
+            text=summary,
+            interline=font_size // 2,
+            font_size=font_size,
+            color='black',
+            font='./font/simhei.ttf',
+            text_align='left',
+            size=(bottom_left_width, bottom_height),
+            method='caption'
+        ).with_duration(mp3.durations).with_position(('left', top_height + title_height)).with_start(mp3.start_time)
+        bottom_left_txt_list.append(bottom_left_txt)
 
     # 标题
     # title_font_size = 40
@@ -309,8 +341,8 @@ def generate_three_layout_video(audio_path, video_path, title, summary, output_p
 
     # 合成最终视频
     video_clip_list.insert(0, bg_clip)
-    video_clip_list.insert(1, bottom_left_txt)
-    video_clip_list.insert(2, bottom_right_img)
+    video_clip_list.insert(1, bottom_right_img)
+    video_clip_list.extend(bottom_left_txt_list)
     # video_clip_list.insert(3, top_title)
     final_video = CompositeVideoClip(clips=video_clip_list, size=(bg_width, bg_height))
     logger.info(f'title ={title} final_video.size={final_video.size} , final_video.duration={final_video.duration}')
@@ -445,7 +477,7 @@ def generate_video_end(is_preview=False):
     ).with_duration(duration).with_position(('center', GLOBAL_HEIGHT * 0.6))
 
     anouncer = (VideoFileClip('videos/man_announcer.mp4').with_duration(duration)
-            .with_position(('center', GLOBAL_HEIGHT * 0.27)).resized(0.75))
+                .with_position(('center', GLOBAL_HEIGHT * 0.27)).resized(0.75))
 
     # 合成最终视频
     final_clip = CompositeVideoClip([bg_clip, txt_clip, anouncer], size=bg_clip.size)
@@ -551,10 +583,9 @@ def generate_all_news_video(today: str = datetime.now().strftime("%Y%m%d"), time
             video_output_paths.append(video_output_path)
             continue
 
-        audio_output_path = article.audio
         generated_result = generate_three_layout_video(
             output_path=video_output_path,
-            audio_path=audio_output_path,
+            audios=article.audios,
             video_path=article.video,
             summary=article.summary,
             title=article.title,

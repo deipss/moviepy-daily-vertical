@@ -4,7 +4,9 @@ import gradio as gr
 from datetime import datetime
 from logging_config_p import logger
 from video_generator_portrait import combine_videos, build_new_articles_uploaded_path, ALJ_UP
-
+from nltk.tokenize import word_tokenize
+import nltk
+nltk.download('punkt')
 # 保存目录
 VIDEO_DIR = "news_p"
 os.makedirs(VIDEO_DIR, exist_ok=True)
@@ -47,14 +49,23 @@ def save_videos(*args):
                 with open(uploaded_video_path, "wb") as out_file:
                     out_file.write(src_file.read())
             logger.info(f'video has saved in {uploaded_video_path}')
-            mp3_path = f"{times}_{title_i}.mp3"
-            mp3_path = os.path.join(VIDEO_DIR, today, ALJ_UP, mp3_path)
-
-            generate_audio(description_i, mp3_path)
-            logger.info(f'mp3 has saved in {mp3_path}')
+            # 这里不能直接50切分，需要用AI辅助切分 TODO
+            descriptions_split = [description_i]
+            mp3_paths = []
+            for idx, description_i in enumerate(descriptions_split):
+                mp3_path = f"{times}_{title_i}_{idx}.mp3"
+                mp3_path = os.path.join(VIDEO_DIR, today, ALJ_UP, mp3_path)
+                generate_audio(description_i, mp3_path)
+                mp3_paths.append(
+                    {
+                        'txt': description_i,
+                        'audio_path': mp3_path
+                    }
+                )
+                logger.info(f'mp3 has saved in {mp3_path}')
             video_info.append({
                 "video": uploaded_video_path,
-                "audio": mp3_path,
+                "audios": mp3_paths,
                 "title": title_i,
                 "summary": description_i,
                 "source": ALJ_UP,
@@ -78,7 +89,13 @@ def save_videos(*args):
         return f"上传失败: {str(e)}"
 
 
+
+
+
+
+
 if __name__ == '__main__':
+
 
     with gr.Blocks() as app:
         with gr.Row():
