@@ -423,6 +423,7 @@ def generate_video_end(is_preview=False):
     output_path = build_end_path()
     if os.path.exists(output_path) and not REWRITE and not is_preview:
         logger.info(f"片尾{output_path}已存在,直接返回")
+        return output_path
     generate_background_image(GLOBAL_WIDTH, GLOBAL_HEIGHT)
     bg_clip = ImageClip(BACKGROUND_IMAGE_PATH)
     audio_path = build_today_end_audio_path()
@@ -445,7 +446,7 @@ def generate_video_end(is_preview=False):
     ).with_duration(duration).with_position(('center', GLOBAL_HEIGHT * 0.6))
 
     anouncer = (VideoFileClip('videos/man_announcer.mp4').with_duration(duration)
-            .with_position(('center', GLOBAL_HEIGHT * 0.27)).resized(0.75))
+                .with_position(('center', GLOBAL_HEIGHT * 0.27)).resized(0.75))
 
     # 合成最终视频
     final_clip = CompositeVideoClip([bg_clip, txt_clip, anouncer], size=bg_clip.size)
@@ -464,12 +465,14 @@ def combine_videos_with_transitions(video_paths, output_path):
 
     # 加载视频和音频
     clips = []
+    duration_list = []
     for i, video_path in enumerate(video_paths):
         # 加载视频
         video = VideoFileClip(video_path)
         if (video.duration < 2):
             logger.warning(f"视频{video_path}时长不足2秒,跳过")
             continue
+        duration_list.append(video.duration)
         video = video.with_position(('center', 'center'), relative=True)
         # 将视频放置在背景上
         video_with_bg = CompositeVideoClip([
@@ -483,20 +486,29 @@ def combine_videos_with_transitions(video_paths, output_path):
     # 导出最终视频
     final_clip.write_videofile(output_path, codec="libx264", audio_codec="aac", fps=FPS)
     logger.info(f"视频整合生成完成,path={output_path}")
+    return duration_list
     # final_clip.preview()
 
 
-def add_walking_man(path, walk_video_path):
+def add_walking_man(path, walk_video_path, duration_list):
     origin_v = VideoFileClip(path)
+    all_duration = origin_v.duration
+    duration_width_list = [duration / all_duration * GLOBAL_WIDTH for duration in duration_list]
+    duration_width_int_list = [int(sum(duration_width_list[:i])) for i in range(1, len(duration_width_list))]
+    seg_clips = []
+    for seg in duration_width_int_list:
+        tag = ImageClip('videos/seg.png')
+        tag = tag.resized(GAP / 2 / tag.h)
+        tag = tag.with_position((seg, 'bottom')).with_duration(origin_v.duration).with_start(0)
+        seg_clips.append(tag)
     width = origin_v.w
     walk = ImageClip('videos/process_panda.png')
     walk = walk.resized(GAP / 2 / walk.h)
     walk = walk.with_position(lambda t: (t / origin_v.duration * width, 'bottom')).with_duration(
         origin_v.duration).with_start(0)
-    video_with_bg = CompositeVideoClip([
-        origin_v,
-        walk
-    ], use_bgclip=True)
+    seg_clips.insert(0, origin_v)
+    seg_clips.append(walk)
+    video_with_bg = CompositeVideoClip(seg_clips, use_bgclip=True)
     video_with_bg = video_with_bg.with_audio(origin_v.audio)
     video_with_bg.write_videofile(walk_video_path, codec="libx264", audio_codec="aac", fps=FPS)
 
@@ -515,8 +527,8 @@ def combine_videos(today: str = datetime.now().strftime("%Y%m%d"), times_tag=1):
     final_path = build_today_final_video_path(today, times_tag)
     final_path_walk = build_today_final_video_path_walk(today, times_tag)
     logger.info(f"主视频保存在:{final_path} and {final_path_walk}")
-    combine_videos_with_transitions(video_paths, final_path)
-    add_walking_man(final_path, final_path_walk)
+    duration_list = combine_videos_with_transitions(video_paths, final_path)
+    add_walking_man(final_path, final_path_walk, duration_list)
     end_time = time.time()  # 结束计时
     elapsed_time = end_time - start_time
     # save_today_news_json(topics, today)
@@ -541,9 +553,6 @@ def generate_all_news_video(today: str = datetime.now().strftime("%Y%m%d"), time
         logger.info(f" {article.source} {article.show} {article.title}   新闻正在处理...")
         processed_video = f"{str(times_tag)}_p_{article.title}.mp4"
         video_output_path = os.path.join(dir_path, processed_video)
-        if os.path.exists(video_output_path) and not REWRITE:
-            logger.info(f'{video_output_path} has exists ')
-            continue
         logger.info(f" {article.title} 保存在{video_output_path}")
         if os.path.exists(video_output_path) and not REWRITE:
             logger.warning(
