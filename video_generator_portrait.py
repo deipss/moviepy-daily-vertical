@@ -263,7 +263,8 @@ def generate_three_layout_video(audio_path, video_path, title, summary, output_p
         bottom_right_img = bottom_right_img.resized(scale)
     offset_w, offset_h = (bottom_right_width - bottom_right_img.w) // 2, (bottom_height - bottom_right_img.h) // 2
 
-    bottom_right_img = bottom_right_img.with_position(('right', top_height + title_height+offset_h)).with_duration(duration)
+    bottom_right_img = bottom_right_img.with_position(('right', top_height + title_height + offset_h)).with_duration(
+        duration)
 
     # 左上图片处理
     video_clip_list = []
@@ -495,14 +496,26 @@ def add_walking_man(path, walk_video_path, duration_list):
     all_duration = origin_v.duration
     duration_width_list = [duration / all_duration * GLOBAL_WIDTH for duration in duration_list]
     duration_width_int_list = [int(sum(duration_width_list[:i])) for i in range(1, len(duration_width_list))]
+    duration_width_number_list = [int(sum(duration_width_list[:i]) - duration_width_list[i-1] / 2) for i in
+                                  range(1, len(duration_width_list))]
     seg_clips = []
-    for seg in duration_width_int_list:
+    for idx, (seg, num) in enumerate(zip(duration_width_int_list, duration_width_number_list)):
         tag = ImageClip('videos/seg.png')
         tag = tag.resized(GAP / 2 / tag.h)
         tag = tag.with_position((seg, 'bottom')).with_duration(origin_v.duration).with_start(0)
         seg_clips.append(tag)
+
+        txt_clip = TextClip(
+            text=str(idx+1),
+            font_size=int(tag.h * 0.95),
+            color='white',
+            font='./font/simhei.ttf',
+            stroke_color='white',
+            stroke_width=1
+        ).with_duration(origin_v.duration).with_position((num, 'bottom')).with_start(0)
+        seg_clips.append(txt_clip)
     width = origin_v.w
-    walk = ImageClip('videos/process_panda.png')
+    walk = ImageClip('videos/arrowhead.png')
     walk = walk.resized(GAP / 2 / walk.h)
     walk = walk.with_position(lambda t: (t / origin_v.duration * width, 'bottom')).with_duration(
         origin_v.duration).with_start(0)
@@ -510,6 +523,7 @@ def add_walking_man(path, walk_video_path, duration_list):
     seg_clips.append(walk)
     video_with_bg = CompositeVideoClip(seg_clips, use_bgclip=True)
     video_with_bg = video_with_bg.with_audio(origin_v.audio)
+    # video_with_bg.preview()
     video_with_bg.write_videofile(walk_video_path, codec="libx264", audio_codec="aac", fps=FPS)
 
 
